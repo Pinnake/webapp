@@ -1,31 +1,21 @@
-terraform {
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "3.73.0"
+resource "google_compute_instance" "vm_instance_public" {
+  name         = "${lower(var.company)}-${lower(var.app_name)}-${var.environment}-vm${random_id.instance_id.hex}"
+  machine_type = var.linux_instance_type
+  zone         = var.gcp_zone
+  hostname     = "${var.app_name}-vm${random_id.instance_id.hex}.${var.app_domain}"
+  tags         = ["ssh","http"]
+
+  boot_disk {
+    initialize_params {
+      image = var.ubuntu_2004_sku
     }
   }
 
-  required_version = ">= 0.15.0"
-}
+  metadata_startup_script = data.template_file.linux-metadata.rendered
 
-provider "google" {
-  project = "{{project-id}}"
-  region  = "us-central1"
-  zone    = "us-central1-c"
-}
-
-module "project_services" {
-  source  = "terraform-google-modules/project-factory/google//modules/project_services"
-  version = "3.3.0"
-
-  project_id = "{{project-id}}"
-
-  activate_apis = [
-    "compute.googleapis.com",
-    "oslogin.googleapis.com"
-  ]
-
-  disable_services_on_destroy = false
-  disable_dependent_services  = false
-}
+  network_interface {
+    network       = google_compute_network.vpc.name
+    subnetwork    = google_compute_subnetwork.network_subnet.name
+    access_config { }
+  }
+} 
