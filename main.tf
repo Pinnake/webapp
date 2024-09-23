@@ -1,39 +1,45 @@
-variable "company" {
-  description = "The name of the company"
-  type        = string
+provider "google" {
+  credentials = file(var.GOOGLE_APPLICATION_CREDENTIALS)  # Use the variable for credentials
+  project     = var.project_id                               # Add your project ID variable
+  region      = var.gcp_region
 }
 
-variable "app_name" {
-  description = "The name of the application"
-  type        = string
+resource "random_id" "instance_id" {
+  byte_length = 8
 }
 
-variable "environment" {
-  description = "The environment (dev/prod/etc.)"
-  type        = string
+# Define the VPC network
+resource "google_compute_network" "vpc" {
+  name = "${var.company}-${var.app_name}-vpc"
+  auto_create_subnetworks = false
 }
 
-variable "gcp_region" {
-  description = "GCP region"
-  type        = string
+# Define the subnet
+resource "google_compute_subnetwork" "network_subnet" {
+  name          = "${var.company}-${var.app_name}-subnet"
+  region        = var.gcp_region
+  network       = google_compute_network.vpc.name
+  ip_cidr_range = "10.0.0.0/24"  # Adjust CIDR as necessary
 }
 
-variable "gcp_zone" {
-  description = "GCP zone"
-  type        = string
-}
+# Define the Google Compute Instance
+resource "google_compute_instance" "vm_instance_public" {
+  name         = "${lower(var.company)}-${lower(var.app_name)}-${var.environment}-vm${random_id.instance_id.hex}"
+  machine_type = var.linux_instance_type
+  zone         = var.gcp_zone
+  tags         = ["ssh", "http"]
 
-variable "linux_instance_type" {
-  description = "Linux instance type"
-  type        = string
-}
+  boot_disk {
+    initialize_params {
+      image = var.ubuntu_2004_sku
+    }
+  }
 
-variable "ubuntu_2004_sku" {
-  description = "Ubuntu 20.04 image SKU"
-  type        = string
-}
+  network_interface {
+    network       = google_compute_network.vpc.name
+    subnetwork    = google_compute_subnetwork.network_subnet.name
+    access_config {}
+  }
 
-variable "app_domain" {
-  description = "Application domain"
-  type        = string
+  metadata_startup_script = file("path/to/your/startup-script.sh")  # Adjust the path to your startup script
 }
