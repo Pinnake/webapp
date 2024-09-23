@@ -1,9 +1,4 @@
-variable "company" {
-    description = "The name of the company"
-    type        = string
-}
-
-variable "app_name" {
-    description = "The name of the application"
-    type        = string
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
 }
