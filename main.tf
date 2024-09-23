@@ -1,7 +1,7 @@
 provider "google" {
-  credentials = file(var.GOOGLE_APPLICATION_CREDENTIALS)  # Use the variable for credentials
-  project     = var.project_id                               # Add your project ID variable
-  region      = var.gcp_region
+  credentials = file("/home/shinsoncjohnson1997/gcp-credentials/gcp-service-account.json")  # Path to your credentials
+  project     = "bamboo-striker-431709-q3"  # Your project ID
+  region      = "us-central1"                 # Your GCP region
 }
 
 resource "random_id" "instance_id" {
@@ -10,36 +10,53 @@ resource "random_id" "instance_id" {
 
 # Define the VPC network
 resource "google_compute_network" "vpc" {
-  name = "${var.company}-${var.app_name}-vpc"
+  name                    = "my-company-my-app-vpc"
   auto_create_subnetworks = false
 }
 
 # Define the subnet
 resource "google_compute_subnetwork" "network_subnet" {
-  name          = "${var.company}-${var.app_name}-subnet"
-  region        = var.gcp_region
+  name          = "my-company-my-app-subnet"
+  region        = "us-central1"
   network       = google_compute_network.vpc.name
   ip_cidr_range = "10.0.0.0/24"  # Adjust CIDR as necessary
 }
 
 # Define the Google Compute Instance
 resource "google_compute_instance" "vm_instance_public" {
-  name         = "${lower(var.company)}-${lower(var.app_name)}-${var.environment}-vm${random_id.instance_id.hex}"
-  machine_type = var.linux_instance_type
-  zone         = var.gcp_zone
+  name         = "my-company-my-app-prod-vm-${random_id.instance_id.hex}"
+  machine_type = "n1-standard-1"  # Instance type
+  zone         = "us-central1-a"   # Zone
   tags         = ["ssh", "http"]
 
   boot_disk {
     initialize_params {
-      image = var.ubuntu_2004_sku
+      image = "ubuntu-os-cloud/ubuntu-2004-focal-v20230905"  # Ubuntu 20.04 image
     }
   }
 
   network_interface {
-    network       = google_compute_network.vpc.name
-    subnetwork    = google_compute_subnetwork.network_subnet.name
-    access_config {}
+    network = google_compute_network.vpc.name
+    access_config {
+      // This is necessary for assigning a public IP
+    }
   }
 
-  metadata_startup_script = file("path/to/your/startup-script.sh")  # Adjust the path to your startup script
+  metadata_startup_script = <<-EOT
+    #!/bin/bash
+    echo "Hello, World!" > /var/log/startup-script.log
+  EOT
+}
+
+# Optional: Define firewall rules
+resource "google_compute_firewall" "default" {
+  name    = "my-company-my-app-firewall"
+  network = google_compute_network.vpc.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "80"]  # Allow SSH and HTTP traffic
+  }
+
+  source_ranges = ["0.0.0.0/0"]  # Change this to your desired IP ranges
 }
